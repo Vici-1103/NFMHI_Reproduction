@@ -1,0 +1,36 @@
+{
+  "boot-test": {
+    "cst_exe_exists": true,
+    "project_save_probe": "V:\\BaiduSyncdisk\\Study\\ShanghaiTech\\202603_NFMHI_Reproduction\\cst\\unit_cell\\nfmhi_unit_cell_30ghz.cst",
+    "status": "ok"
+  },
+  "unit-scan": {
+    "project": "V:\\BaiduSyncdisk\\Study\\ShanghaiTech\\202603_NFMHI_Reproduction\\cst\\unit_cell\\nfmhi_unit_cell_30ghz.cst",
+    "height_range_mm": [
+      2.0,
+      8.0
+    ],
+    "paper_frequency_ghz": 30.0,
+    "solver_band_ghz": [
+      29.0,
+      31.0
+    ],
+    "sweep_step_mm": 0.25,
+    "solver_started": true,
+    "csv_exported": true,
+    "csv_path": "V:\\BaiduSyncdisk\\Study\\ShanghaiTech\\202603_NFMHI_Reproduction\\cst\\results\\unit_scan\\phase_height_curve.csv"
+  },
+  "full-array-export": {
+    "height_csv": "python\\outputs\\height_maps\\height_matrix.csv",
+    "array_shape": [
+      60,
+      60
+    ],
+    "height_min_mm": 2.0665524,
+    "height_max_mm": 7.9551,
+    "monitor_z_mm": 102.0,
+    "project": "V:\\BaiduSyncdisk\\Study\\ShanghaiTech\\202603_NFMHI_Reproduction\\cst\\full_array\\nfmhi_full_array_60x60.cst",
+    "solver_started": false,
+    "field_exported": false
+  }
+}

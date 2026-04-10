@@ -1,0 +1,31 @@
+project:
+  name: NFMHI_Reproduction
+  random_seed: 42
+
+paths:
+  target_image: python/data/targets/target_GHZ_60x60.npy
+  phase_output: python/outputs/phase_maps/phase_matrix.npy
+  height_output: python/outputs/height_maps/height_matrix.csv
+  metrics_output: python/outputs/metrics/
+  figures_output: python/outputs/figures/
+
+simulation:
+  grid_size: 60
+  layer_count: 1
+  cell_size_mm: 5.0
+  wavelength_mm: 10.0
+  frequency_ghz: 30.0
+  propagation_distance_mm: 100.0
+  amplitude_response: constant
+
+training:
+  learning_rate: 0.05
+  epochs: 1000
+  optimizer: adam
+  phase_init: random_uniform
+  loss_type: mse_then_mmse
+
+cst:
+  unit_height_min_mm: 2.0
+  unit_height_max_mm: 8.0
+  zero_phase_reference_height_mm: 2.0

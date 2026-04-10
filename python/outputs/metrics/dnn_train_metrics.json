@@ -1,0 +1,11 @@
+{
+  "best_loss": 0.005061730742454529,
+  "epochs": 1000,
+  "learning_rate": 0.05,
+  "loss_type": "mse",
+  "target": "python\\data\\targets\\target_GHZ_60x60.npy",
+  "cell_size_mm": 5.0,
+  "wavelength_mm": 10.0,
+  "distance_mm": 100.0,
+  "seed": 42
+}
