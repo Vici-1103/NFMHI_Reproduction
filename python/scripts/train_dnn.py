@@ -177,16 +177,6 @@ def plot_results(target: np.ndarray, intensity: np.ndarray, phase: np.ndarray, l
     plt.savefig(FIG_DIR / f"{out_prefix}_loss_curve.png", dpi=180, bbox_inches="tight")
     plt.close()
 
-    plt.figure(figsize=(6, 4))
-    plt.plot(np.arange(1, len(loss_arr) + 1), loss_arr, color="red", linewidth=1.0)
-    plt.xlabel("Epoch")
-    plt.ylabel("Loss")
-    plt.xlim(0, len(loss_arr))
-    plt.ylim(0.0, float(np.max(loss_arr)) * 1.05)
-    plt.tight_layout()
-    plt.savefig(FIG_DIR / "loss_curve.png", dpi=180, bbox_inches="tight")
-    plt.close()
-
     np.save(PHASE_DIR / f"{out_prefix}_phase.npy", phase_wrapped.astype(np.float32))
     np.save(PHASE_DIR / "phase_matrix.npy", phase_wrapped.astype(np.float32))
     np.save(FIG_DIR / f"{out_prefix}_intensity.npy", intensity_display.astype(np.float32))
