@@ -11,20 +11,11 @@ Thumbs.db
 venv/
 .env
 *.cst~
-*.mod
-*.msh
 *.cache
 .mplconfig/
-python/outputs/checkpoints/*
-python/outputs/logs/*
-python/outputs/figures/*.png
-python/outputs/metrics/*.csv
-python/outputs/phase_maps/*.npy
-python/outputs/height_maps/*.npy
 cst/exports/field_data/*
 cst/exports/sparams/*
 cst/exports/images/*
-cst/results/**/*
 logs/*
 
 # CST generated workspaces and solver outputs
