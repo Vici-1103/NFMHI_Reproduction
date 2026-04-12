@@ -1,8 +1,9 @@
 ' Build a CST 2021-compatible 60x60 full-array project from a height CSV.
 ' Usage:
 ' 1) Open CST Studio Suite 2021 and create a new MW Studio project.
-' 2) Open Macros -> Edit Macros, import this BAS file, and update USER CONFIG.
-' 3) Run the macro. It will configure the project and create the full array.
+' 2) Create material "VeroWhitePlus" in the project before running this macro.
+' 3) Open Macros -> Edit Macros, import this BAS file, and update USER CONFIG.
+' 4) Run the macro. It will configure the project and create the full array.
 
 Option Explicit
 
@@ -36,9 +37,15 @@ Sub Main()
         Exit Sub
     End If
 
+    If Not MaterialExists(MATERIAL_NAME) Then
+        MsgBox "Material does not exist in the current project: " & MATERIAL_NAME & vbCrLf & _
+               "Create it manually first, then rerun the macro.", vbCritical
+        Exit Sub
+    End If
+
     ConfigureProject
     BuildArrayFromHeights heights, N_ROWS, N_COLS
-    Rebuild
+    ViewAll
 
     MsgBox "CST 2021 full-array build completed.", vbInformation
 End Sub
@@ -61,24 +68,6 @@ Private Sub ConfigureProject()
         .YmaxSpace "0.0"
         .ZminSpace "0.0"
         .ZmaxSpace "0.0"
-    End With
-
-    With Material
-        .Reset
-        .Name MATERIAL_NAME
-        .Folder ""
-        .Type "Normal"
-        .FrqType "all"
-        .MaterialUnit "Frequency", "GHz"
-        .MaterialUnit "Geometry", "mm"
-        .MaterialUnit "Time", "ns"
-        .Epsilon CStr(EPSILON_R)
-        .Mue CStr(MU_R)
-        .TanD CStr(TAN_DELTA)
-        .TanDGiven "True"
-        .TanDModel "ConstTanD"
-        .Colour "0.80", "0.93", "0.95"
-        .Create
     End With
 
     With Boundary
@@ -112,7 +101,7 @@ Private Sub ConfigureProject()
 
     With Monitor
         .Reset
-        .Name "e-field (f=" & CStr(FREQ_GHZ) & ";z=" & CStr(MONITOR_Z_MM) & ")"
+        .Name BuildMonitorName()
         .Domain "Frequency"
         .FieldType "Efield"
         .Frequency CStr(FREQ_GHZ)
@@ -163,6 +152,20 @@ Private Function LoadHeightCsv(ByVal csvPath As String, ByVal nRows As Long, ByV
     LoadHeightCsv = vals
 End Function
 
+Private Function BuildMonitorName() As String
+    BuildMonitorName = "e-field (f=" & CStr(FREQ_GHZ) & ";z=" & CStr(MONITOR_Z_MM) & ")"
+End Function
+
+Private Function MaterialExists(ByVal materialName As String) As Boolean
+    On Error Resume Next
+    MaterialExists = Material.DoesMaterialExist(materialName)
+    If Err.Number <> 0 Then
+        Err.Clear
+        MaterialExists = True
+    End If
+    On Error GoTo 0
+End Function
+
 Private Function HeightRangeIsValid(ByRef h() As Double, ByVal nRows As Long, ByVal nCols As Long) As Boolean
     Dim rowIdx As Long
     Dim colIdx As Long
@@ -198,6 +201,10 @@ End Sub
 
 Private Sub CreateBrick(ByVal name As String, ByVal x1 As Double, ByVal x2 As Double, _
                         ByVal y1 As Double, ByVal y2 As Double, ByVal z1 As Double, ByVal z2 As Double)
+    If z2 <= z1 Then
+        Exit Sub
+    End If
+
     With Brick
         .Reset
         .Name name
