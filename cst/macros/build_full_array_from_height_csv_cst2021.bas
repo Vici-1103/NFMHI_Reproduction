@@ -1,9 +1,8 @@
-' Build a CST 2021-compatible 60x60 full-array project from a height CSV.
+' Build a 60x60 full-array CST project from a height CSV.
 ' Usage:
-' 1) Open CST Studio Suite 2021 and create a new MW Studio project.
-' 2) Create material "VeroWhitePlus" in the project before running this macro.
-' 3) Open Macros -> Edit Macros, import this BAS file, and update USER CONFIG.
-' 4) Run the macro. It will configure the project and create the full array.
+' 1) Open CST Studio Suite and create a new empty MW Studio project.
+' 2) Open Macros -> Edit Macros, import this BAS file, and update CSV_PATH only.
+' 3) Run the macro. It will configure the project, create the material, add the monitor, and build the full array.
 
 Option Explicit
 
@@ -26,10 +25,15 @@ Private Const MATERIAL_NAME As String = "VeroWhitePlus"
 Private Const NAME_PREFIX As String = "cell_"
 Private Const EPSILON_R As Double = 2.802
 Private Const MU_R As Double = 1#
-Private Const TAN_DELTA As Double = 0.0557
+Private Const TAN_DELTA As Double = 0.0357
 
 Sub Main()
     Dim heights() As Double
+    If Not CsvExists(CSV_PATH) Then
+        MsgBox "CSV file not found: " & CSV_PATH, vbCritical
+        Exit Sub
+    End If
+
     heights = LoadHeightCsv(CSV_PATH, N_ROWS, N_COLS)
 
     If Not HeightRangeIsValid(heights, N_ROWS, N_COLS) Then
@@ -37,20 +41,19 @@ Sub Main()
         Exit Sub
     End If
 
-    If Not MaterialExists(MATERIAL_NAME) Then
-        MsgBox "Material does not exist in the current project: " & MATERIAL_NAME & vbCrLf & _
-               "Create it manually first, then rerun the macro.", vbCritical
+    If Not ConfigureProject() Then
         Exit Sub
     End If
-
-    ConfigureProject
+    If Not CreateOrUpdateMaterial() Then
+        Exit Sub
+    End If
     BuildArrayFromHeights heights, N_ROWS, N_COLS
-    ViewAll
 
-    MsgBox "CST 2021 full-array build completed.", vbInformation
+    MsgBox "Full-array build completed: " & CStr(N_ROWS) & "x" & CStr(N_COLS), vbInformation
 End Sub
 
-Private Sub ConfigureProject()
+Private Function ConfigureProject() As Boolean
+    On Error GoTo Failed
     With Units
         .Geometry "mm"
         .Frequency "GHz"
@@ -91,10 +94,6 @@ Private Sub ConfigureProject()
         .Normal "0", "0", "-1"
         .EVector "1", "0", "0"
         .Polarization "Linear"
-        .ReferenceFrequency "0.0"
-        .PhaseDifference "-90.0"
-        .CircularDirection "Left"
-        .AxialRatio "1.0"
         .SetUserDecouplingPlane "False"
         .Store
     End With
@@ -109,7 +108,46 @@ Private Sub ConfigureProject()
         .PlanePosition CStr(MONITOR_Z_MM)
         .Create
     End With
-End Sub
+
+    ConfigureProject = True
+    Exit Function
+
+Failed:
+    MsgBox "Failed to configure the CST project: " & Err.Description, vbCritical
+    ConfigureProject = False
+End Function
+
+Private Function CreateOrUpdateMaterial() As Boolean
+    On Error GoTo Failed
+
+    With Material
+        .Reset
+        .Name MATERIAL_NAME
+        .Folder ""
+        .Type "Normal"
+        .FrqType "all"
+        .MaterialUnit "Frequency", "GHz"
+        .MaterialUnit "Geometry", "mm"
+        .MaterialUnit "Time", "ns"
+        .Epsilon CStr(EPSILON_R)
+        .Mue CStr(MU_R)
+        .TanD CStr(TAN_DELTA)
+        .TanDGiven "True"
+        .TanDModel "ConstTanD"
+        .Create
+    End With
+
+    CreateOrUpdateMaterial = True
+    Exit Function
+
+Failed:
+    MsgBox "Failed to create material " & MATERIAL_NAME & ": " & Err.Description, vbCritical
+    CreateOrUpdateMaterial = False
+End Function
+
+Private Function CsvExists(ByVal csvPath As String) As Boolean
+    CsvExists = (Len(Dir$(csvPath)) > 0)
+End Function
 
 Private Function LoadHeightCsv(ByVal csvPath As String, ByVal nRows As Long, ByVal nCols As Long) As Double()
     Dim vals() As Double
@@ -129,19 +167,29 @@ Private Function LoadHeightCsv(ByVal csvPath As String, ByVal nRows As Long, ByV
         If Len(lineText) > 0 Then
             Dim tokens() As String
             tokens = Split(lineText, ",")
+            If UBound(tokens) - LBound(tokens) + 1 <> nCols Then
+                Close #f
+                MsgBox "CSV column count mismatch on row " & CStr(r + 1) & ". Expected " & CStr(nCols) & " columns.", vbCritical
+                End
+            End If
 
             Dim c As Long
             For c = 0 To nCols - 1
-                If c <= UBound(tokens) Then
-                    vals(r, c) = CDbl(Trim$(tokens(c)))
-                Else
-                    vals(r, c) = 0#
-                End If
+                vals(r, c) = CDbl(Trim$(tokens(c)))
             Next c
 
             r = r + 1
         End If
+    Do While Not EOF(f)
+        Dim extraLine As String
+        Line Input #f, extraLine
+        If Len(Trim$(extraLine)) > 0 Then
+            Close #f
+            MsgBox "CSV has more than " & CStr(nRows) & " non-empty rows.", vbCritical
+            End
+        End If
     Loop
+
     Close #f
 
     If r <> nRows Then
@@ -154,16 +202,6 @@ End Function
 
 Private Function BuildMonitorName() As String
     BuildMonitorName = "e-field (f=" & CStr(FREQ_GHZ) & ";z=" & CStr(MONITOR_Z_MM) & ")"
-End Function
-
-Private Function MaterialExists(ByVal materialName As String) As Boolean
-    On Error Resume Next
-    MaterialExists = Material.DoesMaterialExist(materialName)
-    If Err.Number <> 0 Then
-        Err.Clear
-        MaterialExists = True
-    End If
-    On Error GoTo 0
 End Function
 
 Private Function HeightRangeIsValid(ByRef h() As Double, ByVal nRows As Long, ByVal nCols As Long) As Boolean

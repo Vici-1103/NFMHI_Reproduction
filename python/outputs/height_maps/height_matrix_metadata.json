@@ -1,0 +1,13 @@
+{
+  "method": "paper_interp",
+  "phase_input": "V:\\NFMHI_Reproduction\\python\\outputs\\phase_maps\\phase_matrix.npy",
+  "scan_csv": "V:\\NFMHI_Reproduction\\cst\\results\\unit_scan\\phase_height_curve.csv",
+  "used_unwrap": true,
+  "zero_phase_reference_height_mm": 2.0,
+  "height_range_mm": [
+    2.0,
+    8.0
+  ],
+  "height_map_min_mm": 2.000293254852295,
+  "height_map_max_mm": 7.950623989105225
+}

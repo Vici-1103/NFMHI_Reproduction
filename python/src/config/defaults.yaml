@@ -23,9 +23,14 @@ training:
   epochs: 1000
   optimizer: adam
   phase_init: random_uniform
-  loss_type: mse_then_mmse
+  loss_type: mmse
 
 cst:
   unit_height_min_mm: 2.0
   unit_height_max_mm: 8.0
   zero_phase_reference_height_mm: 2.0
+  material_name: VeroWhitePlus
+  epsilon_r: 2.802
+  mu_r: 1.0
+  tan_delta: 0.0357
+  monitor_z_mm: 102.0

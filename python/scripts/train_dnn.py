@@ -15,7 +15,10 @@ import matplotlib.pyplot as plt
 from matplotlib.colors import LinearSegmentedColormap
 import numpy as np
 from PIL import Image
-import tensorflow as tf
+try:
+    import tensorflow as tf
+except ImportError:  # pragma: no cover - environment-dependent import
+    tf = None
 
 TARGET_DIR = PROJECT_ROOT / "python" / "data" / "targets"
 OUTPUT_DIR = PROJECT_ROOT / "python" / "outputs"
@@ -24,6 +27,7 @@ FIG_DIR = OUTPUT_DIR / "figures"
 PHASE_DIR = OUTPUT_DIR / "phase_maps"
 METRIC_DIR = OUTPUT_DIR / "metrics"
 LOG_DIR = OUTPUT_DIR / "logs"
+DEFAULT_CONFIG_PATH = PROJECT_ROOT / "python" / "src" / "config" / "defaults.yaml"
 PAPER_INTENSITY_MAX = 3.76
 
 
@@ -37,6 +41,39 @@ def load_target(path: Path) -> np.ndarray:
         raise ValueError("Target must be a 2D grayscale array.")
     arr = np.clip(arr, 0.0, 1.0)
     return arr
+
+
+def parse_scalar(value: str) -> object:
+    value = value.strip()
+    lowered = value.lower()
+    if lowered in {"true", "false"}:
+        return lowered == "true"
+    try:
+        if "." in value:
+            return float(value)
+        return int(value)
+    except ValueError:
+        return value
+
+
+def load_defaults() -> dict[str, object]:
+    root: dict[str, object] = {}
+    stack: list[tuple[int, dict[str, object]]] = [(-1, root)]
+
+    for raw_line in DEFAULT_CONFIG_PATH.read_text(encoding="utf-8").splitlines():
+        if not raw_line.strip() or raw_line.lstrip().startswith("#"):
+            continue
+        indent = len(raw_line) - len(raw_line.lstrip(" "))
+        key, _, value = raw_line.strip().partition(":")
+        while indent <= stack[-1][0]:
+            stack.pop()
+        parent = stack[-1][1]
+        if value.strip() == "":
+            parent[key] = {}
+            stack.append((indent, parent[key]))
+        else:
+            parent[key] = parse_scalar(value)
+    return root
 
 
 
@@ -185,6 +222,11 @@ def plot_results(target: np.ndarray, intensity: np.ndarray, phase: np.ndarray, l
 
 
 def parse_args() -> argparse.Namespace:
+    defaults = load_defaults()
+    training_defaults = defaults["training"]
+    sim_defaults = defaults["simulation"]
+    project_defaults = defaults["project"]
+
     parser = argparse.ArgumentParser(description="Train a diffraction phase mask for the NFMHI project.")
     parser.add_argument(
         "--target",
@@ -192,13 +234,13 @@ def parse_args() -> argparse.Namespace:
         default=str(TARGET_DIR / "target_GHZ_60x60.npy"),
         help="Path to target .npy or .png file.",
     )
-    parser.add_argument("--epochs", type=int, default=1000)
-    parser.add_argument("--lr", type=float, default=0.05)
-    parser.add_argument("--cell-size-mm", type=float, default=5.0)
-    parser.add_argument("--wavelength-mm", type=float, default=10.0)
-    parser.add_argument("--distance-mm", type=float, default=100.0)
-    parser.add_argument("--seed", type=int, default=42)
-    parser.add_argument("--loss-type", choices=["mse", "mmse"], default="mse")
+    parser.add_argument("--epochs", type=int, default=int(training_defaults["epochs"]))
+    parser.add_argument("--lr", type=float, default=float(training_defaults["learning_rate"]))
+    parser.add_argument("--cell-size-mm", type=float, default=float(sim_defaults["cell_size_mm"]))
+    parser.add_argument("--wavelength-mm", type=float, default=float(sim_defaults["wavelength_mm"]))
+    parser.add_argument("--distance-mm", type=float, default=float(sim_defaults["propagation_distance_mm"]))
+    parser.add_argument("--seed", type=int, default=int(project_defaults["random_seed"]))
+    parser.add_argument("--loss-type", choices=["mse", "mmse"], default=str(training_defaults["loss_type"]).lower())
     parser.add_argument("--save-every", type=int, default=100, help="Print progress every N epochs.")
     parser.add_argument("--out-prefix", type=str, default="dnn_train")
     return parser.parse_args()
@@ -217,6 +259,8 @@ def compute_loss(intensity: tf.Tensor, target: tf.Tensor, loss_type: str) -> tf.
 
 def main() -> None:
     args = parse_args()
+    if tf is None:
+        raise RuntimeError("TensorFlow is required to run train_dnn.py. Install the dependencies from env/requirements.txt.")
     np.random.seed(args.seed)
     tf.random.set_seed(args.seed)
 
@@ -289,6 +333,7 @@ def main() -> None:
         "best_loss": best_loss,
         "epochs": args.epochs,
         "learning_rate": args.lr,
+        "optimizer": "adam",
         "loss_type": args.loss_type,
         "target": str(target_path),
         "cell_size_mm": args.cell_size_mm,

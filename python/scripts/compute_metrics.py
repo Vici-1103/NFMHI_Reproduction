@@ -16,6 +16,10 @@ except ImportError:
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 METRICS_DIR = PROJECT_ROOT / "python" / "outputs" / "metrics"
+PAPER_REFERENCE = {
+    "ie": 0.6834,
+    "psnr_db": 10.47,
+}
 
 
 def parse_args() -> argparse.Namespace:
@@ -174,6 +178,7 @@ def main() -> None:
 
     metrics = {
         "target_shape": list(target.shape),
+        "paper_reference": PAPER_REFERENCE,
         "python_vs_target": compute_pair_metrics(target, python_out),
         "cst_vs_target": compute_pair_metrics(target, cst_out),
         "python_vs_cst": compute_pair_metrics(python_out, cst_out),

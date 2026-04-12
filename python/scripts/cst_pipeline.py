@@ -18,6 +18,7 @@ CST_EXE = CST_INSTALL_DIR / "CST DESIGN ENVIRONMENT.exe"
 UNIT_CELL_PROJECT = PROJECT_ROOT / "cst" / "unit_cell" / "nfmhi_unit_cell_30ghz.cst"
 FULL_ARRAY_PROJECT = PROJECT_ROOT / "cst" / "full_array" / "nfmhi_full_array_60x60.cst"
 UNIT_SCAN_CSV = PROJECT_ROOT / "cst" / "results" / "unit_scan" / "phase_height_curve.csv"
+UNIT_SCAN_UNWRAPPED_CSV = PROJECT_ROOT / "python" / "outputs" / "height_maps" / "phase_height_curve_unwrapped.csv"
 FIELD_PLANE_CSV = PROJECT_ROOT / "cst" / "results" / "array_sim" / "field_plane_30GHz_100mm.csv"
 HEIGHT_MATRIX_CSV = PROJECT_ROOT / "python" / "outputs" / "height_maps" / "height_matrix.csv"
 PIPELINE_REPORT = PROJECT_ROOT / "docs" / "reports" / "cst_pipeline_status.json"
@@ -36,7 +37,17 @@ MONITOR_Z_MM = HMIN_MM + PROPAGATION_DISTANCE_MM
 MATERIAL_NAME = "VeroWhitePlus"
 EPSILON_R = 2.802
 MU_R = 1.0
-TAN_DELTA = 0.0557
+TAN_DELTA = 0.0357
+
+
+def fmt_cst_scalar(value: float) -> str:
+    if float(value).is_integer():
+        return str(int(value))
+    return f"{value:.6f}".rstrip("0").rstrip(".")
+
+
+def monitor_name(monitor_z_mm: float) -> str:
+    return f"e-field (f={fmt_cst_scalar(FREQ_GHZ)};z={fmt_cst_scalar(monitor_z_mm)})"
 
 
 def parse_args() -> argparse.Namespace:
@@ -275,7 +286,18 @@ def try_extract_unit_scan(project: object, target_csv: Path) -> bool:
     df = pd.DataFrame(rows).sort_values("height_mm").drop_duplicates(subset=["height_mm"], keep="first")
     ensure_parent(target_csv)
     df.to_csv(target_csv, index=False)
+    export_unwrapped_unit_scan(df, UNIT_SCAN_UNWRAPPED_CSV)
     return True
+
+
+def export_unwrapped_unit_scan(df: pd.DataFrame, target_csv: Path) -> None:
+    curve = df.sort_values("height_mm").reset_index(drop=True).copy()
+    phase_unwrapped = np.unwrap(curve["phase_rad"].to_numpy(dtype=np.float64))
+    additional_phase = -(phase_unwrapped - phase_unwrapped[0])
+    curve["phase_rad_unwrapped"] = phase_unwrapped
+    curve["additional_phase_rad"] = additional_phase
+    ensure_parent(target_csv)
+    curve.to_csv(target_csv, index=False)
 
 
 def run_unit_scan(project: object, step_mm: float) -> dict[str, object]:
@@ -293,6 +315,7 @@ def run_unit_scan(project: object, step_mm: float) -> dict[str, object]:
         "sweep_step_mm": step_mm,
         "csv_exported": exported,
         "csv_path": str(UNIT_SCAN_CSV),
+        "csv_unwrapped_path": str(UNIT_SCAN_UNWRAPPED_CSV),
     }
 
 
@@ -314,21 +337,17 @@ def build_full_array_command(height_map: np.ndarray) -> str:
         '    .Normal "0", "0", "-1"',
         '    .EVector "1", "0", "0"',
         '    .Polarization "Linear"',
-        '    .ReferenceFrequency "0.0"',
-        '    .PhaseDifference "-90.0"',
-        '    .CircularDirection "Left"',
-        '    .AxialRatio "1.0"',
         '    .SetUserDecouplingPlane "False"',
         "    .Store",
         "End With",
         "With Monitor",
         "    .Reset",
-        f'    .Name "e-field (f={FREQ_GHZ};z={MONITOR_Z_MM})"',
+        f'    .Name "{monitor_name(MONITOR_Z_MM)}"',
         '    .Domain "Frequency"',
         '    .FieldType "Efield"',
-        f'    .Frequency "{FREQ_GHZ}"',
+        f'    .Frequency "{fmt_cst_scalar(FREQ_GHZ)}"',
         '    .PlaneNormal "z"',
-        f'    .PlanePosition "{MONITOR_Z_MM}"',
+        f'    .PlanePosition "{fmt_cst_scalar(MONITOR_Z_MM)}"',
         "    .Create",
         "End With",
     ]
@@ -391,9 +410,9 @@ def export_field_csv(project: object, requested_tree_item: str) -> dict[str, obj
     candidates = [requested_tree_item] if requested_tree_item else []
     candidates.extend(
         [
-            fr"2D/3D Results\E-Field\e-field (f={FREQ_GHZ};z={MONITOR_Z_MM}) [1]",
-            fr"2D/3D Results\E-Field\e-field (f={FREQ_GHZ};z={MONITOR_Z_MM})",
-            fr"2D/3D Results\E-Field\e-field (f={FREQ_GHZ}) [1]",
+            fr"2D/3D Results\E-Field\{monitor_name(MONITOR_Z_MM)} [1]",
+            fr"2D/3D Results\E-Field\{monitor_name(MONITOR_Z_MM)}",
+            fr"2D/3D Results\E-Field\e-field (f={fmt_cst_scalar(FREQ_GHZ)}) [1]",
         ]
     )
     tree = project.model3d.ResultTree
