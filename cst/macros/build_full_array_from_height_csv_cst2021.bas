@@ -161,28 +161,51 @@ Private Function LoadHeightCsv(ByVal csvPath As String, ByVal nRows As Long, ByV
 
     Dim r As Long
     r = 0
+    Dim lineNo As Long
+    lineNo = 0
     Do While Not EOF(f) And r < nRows
         Dim lineText As String
         Line Input #f, lineText
+        lineNo = lineNo + 1
         lineText = Trim$(lineText)
 
         If Len(lineText) > 0 Then
-            Dim tokens() As String
-            tokens = Split(lineText, ",")
-            If UBound(tokens) - LBound(tokens) + 1 <> nCols Then
+            Dim tokens As Variant
+            tokens = SplitCsvLine(lineText)
+            Dim tokenCount As Long
+            tokenCount = ArrayLength(tokens)
+
+            If tokenCount = 0 Then
+                GoTo ContinueRead
+            End If
+
+            If r = 0 And (Not TokensLookNumeric(tokens)) Then
+                GoTo ContinueRead
+            End If
+
+            Dim valueOffset As Long
+            valueOffset = 0
+            If tokenCount = nCols + 1 And IsNumeric(tokens(0)) Then
+                valueOffset = 1
+                tokenCount = tokenCount - 1
+            End If
+
+            If tokenCount <> nCols Then
                 Close #f
-                MsgBox "CSV column count mismatch on row " & CStr(r + 1) & ". Expected " & CStr(nCols) & " columns.", vbCritical
+                MsgBox "CSV column count mismatch at file line " & CStr(lineNo) & _
+                       ". Expected " & CStr(nCols) & " numeric columns, got " & CStr(tokenCount) & ".", vbCritical
                 LoadHeightCsv = False
                 Exit Function
             End If
 
             Dim c As Long
             For c = 0 To nCols - 1
-                vals(r, c) = CDbl(Trim$(tokens(c)))
+                vals(r, c) = CDbl(tokens(c + valueOffset))
             Next c
 
             r = r + 1
         End If
+ContinueRead:
     Loop
 
     Do While Not EOF(f)
@@ -213,6 +236,65 @@ Failed:
     On Error GoTo 0
     MsgBox "Failed to load CSV: " & Err.Description, vbCritical
     LoadHeightCsv = False
+End Function
+
+Private Function ArrayLength(ByVal arr As Variant) As Long
+    On Error GoTo EmptyArray
+    ArrayLength = UBound(arr) - LBound(arr) + 1
+    Exit Function
+EmptyArray:
+    ArrayLength = 0
+End Function
+
+Private Function TokensLookNumeric(ByVal tokens As Variant) As Boolean
+    Dim i As Long
+    TokensLookNumeric = True
+    For i = LBound(tokens) To UBound(tokens)
+        If Not IsNumeric(tokens(i)) Then
+            TokensLookNumeric = False
+            Exit Function
+        End If
+    Next i
+End Function
+
+Private Function SplitCsvLine(ByVal lineText As String) As Variant
+    Dim lineNorm As String
+    lineNorm = lineText
+
+    lineNorm = Replace(lineNorm, ChrW$(65279), "")
+    lineNorm = Replace(lineNorm, vbTab, ",")
+    lineNorm = Replace(lineNorm, ";", ",")
+
+    If InStr(lineNorm, ",") = 0 Then
+        Do While InStr(lineNorm, "  ") > 0
+            lineNorm = Replace(lineNorm, "  ", " ")
+        Loop
+        lineNorm = Replace(lineNorm, " ", ",")
+    End If
+
+    Dim rawParts As Variant
+    rawParts = Split(lineNorm, ",")
+
+    Dim cleaned() As String
+    Dim count As Long
+    count = -1
+
+    Dim i As Long
+    For i = LBound(rawParts) To UBound(rawParts)
+        Dim tok As String
+        tok = Trim$(CStr(rawParts(i)))
+        If Len(tok) > 0 Then
+            count = count + 1
+            ReDim Preserve cleaned(0 To count)
+            cleaned(count) = tok
+        End If
+    Next i
+
+    If count < 0 Then
+        SplitCsvLine = Array()
+    Else
+        SplitCsvLine = cleaned
+    End If
 End Function
 
 Private Function BuildMonitorName() As String
