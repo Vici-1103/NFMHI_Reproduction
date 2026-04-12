@@ -98,13 +98,10 @@ def make_transfer_function(shape: tuple[int, int], dx: float, wavelength: float,
 
 
 def propagate_with_phase(phi: tf.Tensor, transfer: tf.Tensor) -> tf.Tensor:
-    phase_wrapped = tf.math.floormod(phi, 2.0 * np.pi)
-    field_in = tf.complex(tf.math.cos(phase_wrapped), tf.math.sin(phase_wrapped))
+    field_in = tf.complex(tf.math.cos(phi), tf.math.sin(phi))
     field_in = tf.cast(field_in, tf.complex64)
     field_out = tf.signal.ifft2d(tf.signal.fft2d(field_in) * transfer)
-    intensity = tf.math.abs(field_out) ** 2
-    intensity = intensity / (tf.reduce_max(intensity) + 1e-8)
-    return intensity
+    return tf.math.abs(field_out) ** 2
 
 
 
@@ -249,11 +246,12 @@ def parse_args() -> argparse.Namespace:
 
 def compute_loss(intensity: tf.Tensor, target: tf.Tensor, loss_type: str) -> tf.Tensor:
     if loss_type == "mse":
-        return tf.reduce_mean((intensity - target) ** 2)
+        intensity_norm = intensity / (tf.reduce_max(intensity) + 1e-8)
+        return tf.reduce_mean((intensity_norm - target) ** 2)
 
     target_energy = target / (tf.reduce_sum(target) + 1e-8)
     output_energy = intensity / (tf.reduce_sum(intensity) + 1e-8)
-    return tf.reduce_mean((output_energy - target_energy) ** 2)
+    return tf.reduce_sum((output_energy - target_energy) ** 2)
 
 
 
