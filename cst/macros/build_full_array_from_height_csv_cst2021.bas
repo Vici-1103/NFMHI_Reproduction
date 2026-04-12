@@ -180,6 +180,8 @@ Private Function LoadHeightCsv(ByVal csvPath As String, ByVal nRows As Long, ByV
 
             r = r + 1
         End If
+    Loop
+
     Do While Not EOF(f)
         Dim extraLine As String
         Line Input #f, extraLine
