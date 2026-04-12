@@ -28,7 +28,7 @@ Private Const MU_R As Double = 1#
 Private Const TAN_DELTA As Double = 0.0357
 
 Sub Main()
-    Dim heights() As Double
+    Dim heights As Variant
     If Not CsvExists(CSV_PATH) Then
         MsgBox "CSV file not found: " & CSV_PATH, vbCritical
         Exit Sub
@@ -149,7 +149,7 @@ Private Function CsvExists(ByVal csvPath As String) As Boolean
     CsvExists = (Len(Dir$(csvPath)) > 0)
 End Function
 
-Private Function LoadHeightCsv(ByVal csvPath As String, ByVal nRows As Long, ByVal nCols As Long) As Double()
+Private Function LoadHeightCsv(ByVal csvPath As String, ByVal nRows As Long, ByVal nCols As Long) As Variant
     Dim vals() As Double
     ReDim vals(0 To nRows - 1, 0 To nCols - 1)
 
@@ -206,7 +206,7 @@ Private Function BuildMonitorName() As String
     BuildMonitorName = "e-field (f=" & CStr(FREQ_GHZ) & ";z=" & CStr(MONITOR_Z_MM) & ")"
 End Function
 
-Private Function HeightRangeIsValid(ByRef h() As Double, ByVal nRows As Long, ByVal nCols As Long) As Boolean
+Private Function HeightRangeIsValid(ByRef h As Variant, ByVal nRows As Long, ByVal nCols As Long) As Boolean
     Dim rowIdx As Long
     Dim colIdx As Long
 
@@ -221,7 +221,7 @@ Private Function HeightRangeIsValid(ByRef h() As Double, ByVal nRows As Long, By
     Next rowIdx
 End Function
 
-Private Sub BuildArrayFromHeights(ByRef h() As Double, ByVal nRows As Long, ByVal nCols As Long)
+Private Sub BuildArrayFromHeights(ByRef h As Variant, ByVal nRows As Long, ByVal nCols As Long)
     Dim rowIdx As Long
     Dim colIdx As Long
 
