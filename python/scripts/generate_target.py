@@ -15,57 +15,57 @@ def make_canvas(n: int) -> np.ndarray:
     return np.zeros((n, n), dtype=np.float32)
 
 
-def fill_rect(arr: np.ndarray, r0: float, r1: float, c0: float, c1: float) -> None:
-    n = arr.shape[0]
-    row_slice = slice(max(0, int(round(r0 * n))), min(n, int(round(r1 * n))))
-    col_slice = slice(max(0, int(round(c0 * n))), min(n, int(round(c1 * n))))
-    arr[row_slice, col_slice] = 1.0
-
-
-def stamp_bitmap(arr: np.ndarray, bitmap: list[str], top: int, left: int, scale: int) -> None:
+def stamp_bitmap(arr: np.ndarray, bitmap: list[str], top: int, left: int) -> None:
     glyph = np.array([[1.0 if ch == "1" else 0.0 for ch in row] for row in bitmap], dtype=np.float32)
     glyph = np.flipud(glyph)
-    glyph = np.repeat(np.repeat(glyph, scale, axis=0), scale, axis=1)
     height, width = glyph.shape
     arr[top:top + height, left:left + width] = np.maximum(arr[top:top + height, left:left + width], glyph)
 
 
 def draw_ghz(n: int) -> np.ndarray:
+    if n != 60:
+        raise ValueError("The paper-aligned GHZ target is defined explicitly for a 60x60 grid.")
+
     arr = make_canvas(n)
-    scale = max(1, n // 30)
-    glyph_top = int(round(0.44 * n))
+    glyph_top = 27
 
     glyph_g = [
-        "01110",
-        "10001",
-        "10000",
-        "10111",
-        "10001",
-        "10001",
-        "01110",
+        "0111110",
+        "1000001",
+        "1000000",
+        "1000000",
+        "1001111",
+        "1000001",
+        "1000001",
+        "1000001",
+        "0111110",
     ]
     glyph_h = [
-        "10001",
-        "10001",
-        "10001",
-        "11111",
-        "10001",
-        "10001",
-        "10001",
+        "1000001",
+        "1000001",
+        "1000001",
+        "1000001",
+        "1111111",
+        "1000001",
+        "1000001",
+        "1000001",
+        "1000001",
     ]
     glyph_z = [
-        "11111",
-        "00001",
-        "00010",
-        "00100",
-        "01000",
-        "10000",
-        "11111",
+        "1111111",
+        "0000001",
+        "0000010",
+        "0000100",
+        "0001000",
+        "0010000",
+        "0100000",
+        "1000000",
+        "1111111",
     ]
 
-    stamp_bitmap(arr, glyph_g, glyph_top, int(round(0.17 * n)), scale)
-    stamp_bitmap(arr, glyph_h, glyph_top, int(round(0.42 * n)), scale)
-    stamp_bitmap(arr, glyph_z, glyph_top, int(round(0.67 * n)), scale)
+    stamp_bitmap(arr, glyph_g, glyph_top, 15)
+    stamp_bitmap(arr, glyph_h, glyph_top, 29)
+    stamp_bitmap(arr, glyph_z, glyph_top, 43)
     return arr
 
 

@@ -1,5 +1,5 @@
 {
-  "best_loss": 4.5139251596992835e-05,
+  "best_loss": 0.0002267444069730118,
   "epochs": 1000,
   "learning_rate": 0.05,
   "optimizer": "adam",
