@@ -9,7 +9,7 @@ Option Explicit
 ' =========================
 ' USER CONFIG
 ' =========================
-Private Const CSV_PATH As String = "D:\work\NFMHI_Reproduction\python\outputs\height_maps\height_matrix.csv"
+Private Const CSV_PATH As String = "G:\wgj\height_matrix.csv"
 Private Const N_ROWS As Long = 60
 Private Const N_COLS As Long = 60
 Private Const CELL_SIZE_MM As Double = 5#
@@ -170,7 +170,7 @@ Private Function LoadHeightCsv(ByVal csvPath As String, ByVal nRows As Long, ByV
             If UBound(tokens) - LBound(tokens) + 1 <> nCols Then
                 Close #f
                 MsgBox "CSV column count mismatch on row " & CStr(r + 1) & ". Expected " & CStr(nCols) & " columns.", vbCritical
-                End
+                Exit Function
             End If
 
             Dim c As Long
@@ -188,7 +188,7 @@ Private Function LoadHeightCsv(ByVal csvPath As String, ByVal nRows As Long, ByV
         If Len(Trim$(extraLine)) > 0 Then
             Close #f
             MsgBox "CSV has more than " & CStr(nRows) & " non-empty rows.", vbCritical
-            End
+            Exit Function
         End If
     Loop
 
@@ -196,7 +196,7 @@ Private Function LoadHeightCsv(ByVal csvPath As String, ByVal nRows As Long, ByV
 
     If r <> nRows Then
         MsgBox "CSV row count = " & CStr(r) & ", expected = " & CStr(nRows), vbCritical
-        End
+        Exit Function
     End If
 
     LoadHeightCsv = vals
