@@ -1,11 +1,13 @@
 __pycache__/
 *.pyc
+.vscode/
 .ipynb_checkpoints/
 .DS_Store
 Thumbs.db
 *.log
 *.tmp
 *.bak
+*.lok
 .python-version
 .venv/
 venv/
@@ -28,3 +30,7 @@ cst/**/SP/
 # Keep the canonical full-array archive project, not its unpacked workspace
 cst/full_array/nfmhi_full_array_60x60/
 !cst/full_array/nfmhi_full_array_60x60.cst
+
+# Regenerated exploratory outputs
+python/outputs/figures/forward_only_*
+python/outputs/phase_maps/forward_only_*
