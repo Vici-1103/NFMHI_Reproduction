@@ -28,13 +28,15 @@ Private Const MU_R As Double = 1#
 Private Const TAN_DELTA As Double = 0.0357
 
 Sub Main()
-    Dim heights As Variant
+    Dim heights() As Double
     If Not CsvExists(CSV_PATH) Then
         MsgBox "CSV file not found: " & CSV_PATH, vbCritical
         Exit Sub
     End If
 
-    heights = LoadHeightCsv(CSV_PATH, N_ROWS, N_COLS)
+    If Not LoadHeightCsv(CSV_PATH, N_ROWS, N_COLS, heights) Then
+        Exit Sub
+    End If
 
     If Not HeightRangeIsValid(heights, N_ROWS, N_COLS) Then
         MsgBox "Height matrix contains values outside the configured range [" & CStr(HMIN_MM) & ", " & CStr(HMAX_MM) & "] mm.", vbCritical
@@ -149,8 +151,8 @@ Private Function CsvExists(ByVal csvPath As String) As Boolean
     CsvExists = (Len(Dir$(csvPath)) > 0)
 End Function
 
-Private Function LoadHeightCsv(ByVal csvPath As String, ByVal nRows As Long, ByVal nCols As Long) As Variant
-    Dim vals() As Double
+Private Function LoadHeightCsv(ByVal csvPath As String, ByVal nRows As Long, ByVal nCols As Long, ByRef vals() As Double) As Boolean
+    On Error GoTo Failed
     ReDim vals(0 To nRows - 1, 0 To nCols - 1)
 
     Dim f As Integer
@@ -170,6 +172,7 @@ Private Function LoadHeightCsv(ByVal csvPath As String, ByVal nRows As Long, ByV
             If UBound(tokens) - LBound(tokens) + 1 <> nCols Then
                 Close #f
                 MsgBox "CSV column count mismatch on row " & CStr(r + 1) & ". Expected " & CStr(nCols) & " columns.", vbCritical
+                LoadHeightCsv = False
                 Exit Function
             End If
 
@@ -188,6 +191,7 @@ Private Function LoadHeightCsv(ByVal csvPath As String, ByVal nRows As Long, ByV
         If Len(Trim$(extraLine)) > 0 Then
             Close #f
             MsgBox "CSV has more than " & CStr(nRows) & " non-empty rows.", vbCritical
+            LoadHeightCsv = False
             Exit Function
         End If
     Loop
@@ -196,17 +200,26 @@ Private Function LoadHeightCsv(ByVal csvPath As String, ByVal nRows As Long, ByV
 
     If r <> nRows Then
         MsgBox "CSV row count = " & CStr(r) & ", expected = " & CStr(nRows), vbCritical
+        LoadHeightCsv = False
         Exit Function
     End If
 
-    LoadHeightCsv = vals
+    LoadHeightCsv = True
+    Exit Function
+
+Failed:
+    On Error Resume Next
+    Close #f
+    On Error GoTo 0
+    MsgBox "Failed to load CSV: " & Err.Description, vbCritical
+    LoadHeightCsv = False
 End Function
 
 Private Function BuildMonitorName() As String
     BuildMonitorName = "e-field (f=" & CStr(FREQ_GHZ) & ";z=" & CStr(MONITOR_Z_MM) & ")"
 End Function
 
-Private Function HeightRangeIsValid(ByRef h As Variant, ByVal nRows As Long, ByVal nCols As Long) As Boolean
+Private Function HeightRangeIsValid(ByRef h() As Double, ByVal nRows As Long, ByVal nCols As Long) As Boolean
     Dim rowIdx As Long
     Dim colIdx As Long
 
@@ -221,7 +234,7 @@ Private Function HeightRangeIsValid(ByRef h As Variant, ByVal nRows As Long, ByV
     Next rowIdx
 End Function
 
-Private Sub BuildArrayFromHeights(ByRef h As Variant, ByVal nRows As Long, ByVal nCols As Long)
+Private Sub BuildArrayFromHeights(ByRef h() As Double, ByVal nRows As Long, ByVal nCols As Long)
     Dim rowIdx As Long
     Dim colIdx As Long
 
