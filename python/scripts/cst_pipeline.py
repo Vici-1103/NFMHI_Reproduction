@@ -39,6 +39,9 @@ EPSILON_R = 2.802
 MU_R = 1.0
 TAN_DELTA = 0.0357
 
+Z_MARGIN_BELOW_MM = 20.0
+Z_MARGIN_ABOVE_MM = 25.0
+
 
 def fmt_cst_scalar(value: float) -> str:
     if float(value).is_integer():
@@ -116,11 +119,11 @@ def write_history(project: object, title: str, command: str) -> None:
     project.model3d.add_to_history(title, command)
 
 
-def configure_common_units(project: object) -> None:
+def configure_common_units(project: object, z_min_space_mm: float = 0.0, z_max_space_mm: float = 0.0) -> None:
     write_history(
         project,
         "Project Units",
-        """
+        f"""
 With Units
     .Geometry "mm"
     .Frequency "GHz"
@@ -135,8 +138,8 @@ With Background
     .XmaxSpace "0.0"
     .YminSpace "0.0"
     .YmaxSpace "0.0"
-    .ZminSpace "0.0"
-    .ZmaxSpace "0.0"
+    .ZminSpace "{fmt_cst_scalar(z_min_space_mm)}"
+    .ZmaxSpace "{fmt_cst_scalar(z_max_space_mm)}"
 End With
 """.strip(),
     )
@@ -320,6 +323,7 @@ def run_unit_scan(project: object, step_mm: float) -> dict[str, object]:
 
 
 def build_full_array_command(height_map: np.ndarray) -> str:
+    # Plane wave propagates in +z (from z<0 through the array to z=monitor).
     lines = [
         "With Boundary",
         '    .Xmin "expanded open"',
@@ -334,7 +338,7 @@ def build_full_array_command(height_map: np.ndarray) -> str:
         "End With",
         "With PlaneWave",
         "    .Reset",
-        '    .Normal "0", "0", "-1"',
+        '    .Normal "0", "0", "1"',
         '    .EVector "1", "0", "0"',
         '    .Polarization "Linear"',
         '    .SetUserDecouplingPlane "False"',
@@ -391,7 +395,13 @@ def create_full_array_project(project: object, height_csv: Path, monitor_z_mm: f
     project.model3d.StoreParameterWithDescription("L_cell", str(CELL_SIZE_MM), "Paper LN cell size in mm")
     project.model3d.StoreParameterWithDescription("f0", str(FREQ_GHZ), "Paper center frequency in GHz")
     project.model3d.StoreParameterWithDescription("zc", str(PROPAGATION_DISTANCE_MM), "Paper imaging distance in mm")
-    configure_common_units(project)
+    # The simulation box must enclose the target-plane monitor at monitor_z_mm.
+    z_max_space_mm = max(monitor_z_mm - HMAX_MM + Z_MARGIN_ABOVE_MM, Z_MARGIN_ABOVE_MM)
+    configure_common_units(
+        project,
+        z_min_space_mm=Z_MARGIN_BELOW_MM,
+        z_max_space_mm=z_max_space_mm,
+    )
     create_verowhiteplus_material(project)
 
     global MONITOR_Z_MM

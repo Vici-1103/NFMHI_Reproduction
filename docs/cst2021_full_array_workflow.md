@@ -19,10 +19,10 @@
 ## What the macro configures automatically
 - units: `mm / GHz / ns`
 - material: `VeroWhitePlus`
-- background: normal
+- background: normal, with `ZminSpace = 20 mm` and `ZmaxSpace` extended so the simulation box fully encloses the monitor plane at `z = 102 mm`
 - boundaries: six faces `expanded open`
 - solver band: `29-31 GHz`
-- plane-wave excitation
+- plane-wave excitation propagating in `+z` (from below the array through the metasurface up to the target plane)
 - target-plane monitor at `z = 102 mm`
 - `60 x 60` brick array built from the height CSV
 

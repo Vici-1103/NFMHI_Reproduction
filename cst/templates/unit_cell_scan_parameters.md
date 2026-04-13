@@ -5,7 +5,7 @@
 - Height range: `2 mm ~ 8 mm`
 - Frequency point: `30 GHz`
 - Material: `VeroWhitePlus`
-- Material properties: `eps_r = 2.802`, `mu_r = 1`, `tanδ = 0.0557`
+- Material properties: `eps_r = 2.802`, `mu_r = 1`, `tanδ = 0.0357`
 - Boundary family: `Master-Slave / Unit Cell + Floquet ports`
 
 ## Export target

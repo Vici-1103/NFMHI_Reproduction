@@ -19,6 +19,10 @@ Private Const FREQ_GHZ As Double = 30#
 Private Const FREQ_MIN_GHZ As Double = 29#
 Private Const FREQ_MAX_GHZ As Double = 31#
 Private Const MONITOR_Z_MM As Double = 102#
+' Z-direction free-space buffers so the simulation box encloses the monitor
+' plane (z = 102 mm) and leaves room below the array for plane-wave entry.
+Private Const Z_MARGIN_BELOW_MM As Double = 20#
+Private Const Z_MARGIN_ABOVE_MM As Double = 25#
 
 Private Const COMPONENT_NAME As String = "array"
 Private Const MATERIAL_NAME As String = "VeroWhitePlus"
@@ -62,6 +66,11 @@ Private Function ConfigureProject() As Boolean
         .Time "ns"
     End With
 
+    ' ZminSpace leaves room below the array (z=0) for the plane wave to enter.
+    ' ZmaxSpace stretches the simulation box so the monitor plane at z=102 mm
+    ' sits well inside the volume (otherwise the E-field monitor sees nothing).
+    Dim zMaxSpaceMm As Double
+    zMaxSpaceMm = MONITOR_Z_MM - HMAX_MM + Z_MARGIN_ABOVE_MM
     With Background
         .ResetBackground
         .Type "Normal"
@@ -71,8 +80,8 @@ Private Function ConfigureProject() As Boolean
         .XmaxSpace "0.0"
         .YminSpace "0.0"
         .YmaxSpace "0.0"
-        .ZminSpace "0.0"
-        .ZmaxSpace "0.0"
+        .ZminSpace CStr(Z_MARGIN_BELOW_MM)
+        .ZmaxSpace CStr(zMaxSpaceMm)
     End With
 
     With Boundary
@@ -91,9 +100,11 @@ Private Function ConfigureProject() As Boolean
         .FrequencyRange CStr(FREQ_MIN_GHZ), CStr(FREQ_MAX_GHZ)
     End With
 
+    ' Plane wave propagates in +z (from below the array, upward through the
+    ' metasurface, towards the target-plane monitor at z = MONITOR_Z_MM).
     With PlaneWave
         .Reset
-        .Normal "0", "0", "-1"
+        .Normal "0", "0", "1"
         .EVector "1", "0", "0"
         .Polarization "Linear"
         .SetUserDecouplingPlane "False"

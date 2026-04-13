@@ -13,7 +13,7 @@
 - Propagation distance: `100 mm`
 - Height range: `2 mm ~ 8 mm`
 - Material: `VeroWhitePlus`
-- Material properties: `eps_r = 2.802`, `mu_r = 1`, `tanδ = 0.0557`
+- Material properties: `eps_r = 2.802`, `mu_r = 1`, `tanδ = 0.0357`
 
 ## 2. Runtime Environment
 - Python executable:
