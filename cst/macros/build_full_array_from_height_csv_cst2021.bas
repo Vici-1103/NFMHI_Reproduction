@@ -1,8 +1,25 @@
 ' Build a 60x60 full-array CST project from a height CSV.
+' Rewritten version for CST 2021. Correctness fixes over the previous macro:
+'   1. Monitor is now a 2D PLANE monitor (Dimension "Plane" + UseSubvolume
+'      "False"). The old macro created a Volume monitor whose data was clipped
+'      to the geometry bounding box (z = 0..8 mm), which is why the target
+'      plane at z = 102 mm could not be reached in CST's cutting plane tool.
+'   2. Z-space above the array is sized to guarantee the simulation volume
+'      reaches well past z = 102 mm regardless of brick heights.
+'   3. Material VeroWhitePlus gets TanDFreq = 30 GHz explicitly, so CST stops
+'      warning about unspecified constant-tan-delta evaluation frequency.
+'   4. Time Domain solver is pre-configured: hexahedral PBA mesh, -40 dB
+'      accuracy, adaptive port meshing disabled.
+'
 ' Usage:
-' 1) Open CST Studio Suite and create a new empty MW Studio project.
+' 1) Open CST Studio Suite 2021 and create a new empty MW Studio project.
 ' 2) Open Macros -> Edit Macros, import this BAS file, and update CSV_PATH only.
-' 3) Run the macro. It will configure the project, create the material, add the monitor, and build the full array.
+' 3) Run the macro. It configures the project, builds the material, creates
+'    the 2D target-plane monitor, and builds the 60x60 brick array.
+' 4) Run the Time Domain solver.
+' 5) Double-click "2D/3D Results -> E-Field -> e-field (f=30;z=102) [pw]" to
+'    view the target-plane field, then Post-Processing -> Import/Export ->
+'    Plot Data (ASCII) to export the CSV used by compute_metrics.py.
 
 Option Explicit
 
@@ -19,10 +36,14 @@ Private Const FREQ_GHZ As Double = 30#
 Private Const FREQ_MIN_GHZ As Double = 29#
 Private Const FREQ_MAX_GHZ As Double = 31#
 Private Const MONITOR_Z_MM As Double = 102#
-' Z-direction free-space buffers so the simulation box encloses the monitor
-' plane (z = 102 mm) and leaves room below the array for plane-wave entry.
+
+' Background z-margins
+' Z_MARGIN_BELOW_MM : free space under the array (z < 0) so the plane wave has
+'                    room to enter before hitting the metasurface.
+' Z_MARGIN_ABOVE_MM : free space above the monitor plane (z > MONITOR_Z_MM)
+'                    so the monitor is not sitting on the simulation boundary.
 Private Const Z_MARGIN_BELOW_MM As Double = 20#
-Private Const Z_MARGIN_ABOVE_MM As Double = 25#
+Private Const Z_MARGIN_ABOVE_MM As Double = 20#
 
 Private Const COMPONENT_NAME As String = "array"
 Private Const MATERIAL_NAME As String = "VeroWhitePlus"
@@ -55,22 +76,32 @@ Sub Main()
     End If
     BuildArrayFromHeights heights, N_ROWS, N_COLS
 
-    MsgBox "Full-array build completed: " & CStr(N_ROWS) & "x" & CStr(N_COLS), vbInformation
+    MsgBox "Full-array build completed: " & CStr(N_ROWS) & "x" & CStr(N_COLS) & _
+           ". Run the Time Domain solver, then export the target-plane E-field.", vbInformation
 End Sub
 
 Private Function ConfigureProject() As Boolean
     On Error GoTo Failed
+
+    ' --- Units ---
     With Units
         .Geometry "mm"
         .Frequency "GHz"
         .Time "ns"
     End With
 
-    ' ZminSpace leaves room below the array (z=0) for the plane wave to enter.
-    ' ZmaxSpace stretches the simulation box so the monitor plane at z=102 mm
-    ' sits well inside the volume (otherwise the E-field monitor sees nothing).
+    ' --- Background / simulation volume ---
+    ' The array bricks occupy z in [0, HMAX_MM]. The monitor plane is at
+    ' z = MONITOR_Z_MM. To keep the monitor strictly inside the simulation
+    ' volume, ZmaxSpace must cover (MONITOR_Z_MM - HMAX_MM) plus a safety
+    ' margin. This keeps things correct even for a CSV where every cell is
+    ' at HMAX.
     Dim zMaxSpaceMm As Double
-    zMaxSpaceMm = MONITOR_Z_MM - HMAX_MM + Z_MARGIN_ABOVE_MM
+    zMaxSpaceMm = (MONITOR_Z_MM - HMAX_MM) + Z_MARGIN_ABOVE_MM
+    If zMaxSpaceMm < Z_MARGIN_ABOVE_MM Then
+        zMaxSpaceMm = Z_MARGIN_ABOVE_MM
+    End If
+
     With Background
         .ResetBackground
         .Type "Normal"
@@ -84,6 +115,7 @@ Private Function ConfigureProject() As Boolean
         .ZmaxSpace CStr(zMaxSpaceMm)
     End With
 
+    ' --- Boundaries: expanded open on all six faces ---
     With Boundary
         .Xmin "expanded open"
         .Xmax "expanded open"
@@ -96,27 +128,58 @@ Private Function ConfigureProject() As Boolean
         .Zsymmetry "none"
     End With
 
+    ' --- Solver frequency band ---
     With Solver
         .FrequencyRange CStr(FREQ_MIN_GHZ), CStr(FREQ_MAX_GHZ)
     End With
 
-    ' Plane wave propagates in +z (from below the array, upward through the
-    ' metasurface, towards the target-plane monitor at z = MONITOR_Z_MM).
+    ' --- Mesh: hexahedral PBA (Time Domain default) ---
+    On Error Resume Next
+    Mesh.MeshType "PBA"
+    On Error GoTo Failed
+
+    ' --- Time Domain solver parameters ---
+    ' -40 dB accuracy is the paper-aligned default for this reproduction.
+    On Error Resume Next
+    With Solver
+        .Method "Hexahedral"
+        .CalculationType "TD-S"
+        .StimulationMode "All"
+        .SteadyStateLimit "-40"
+        .AccuracyHex "-40"
+        .MeshAdaption "False"
+        .UseDistributedComputing "False"
+        .StoreTDResultsInCache "False"
+        .NormalizeToDefault "True"
+    End With
+    On Error GoTo Failed
+
+    ' --- Plane wave excitation, +z direction, E along x ---
     With PlaneWave
         .Reset
         .Normal "0", "0", "1"
         .EVector "1", "0", "0"
         .Polarization "Linear"
+        .ReferenceFrequency CStr(FREQ_GHZ)
+        .PhaseType "Time"
+        .ExcitationAmplitude "1.0"
         .SetUserDecouplingPlane "False"
         .Store
     End With
 
+    ' --- Target-plane E-field monitor ---
+    ' MUST be Dimension = Plane (2D), otherwise CST builds a volume monitor
+    ' clipped to the geometry bounding box and the z = 102 mm slice is
+    ' unreachable. UseSubvolume = False spans the full simulation x/y extent
+    ' at the given z.
     With Monitor
         .Reset
         .Name BuildMonitorName()
+        .Dimension "Plane"
         .Domain "Frequency"
         .FieldType "Efield"
         .Frequency CStr(FREQ_GHZ)
+        .UseSubvolume "False"
         .PlaneNormal "z"
         .PlanePosition CStr(MONITOR_Z_MM)
         .Create
@@ -147,6 +210,7 @@ Private Function CreateOrUpdateMaterial() As Boolean
         .TanD CStr(TAN_DELTA)
         .TanDGiven "True"
         .TanDModel "ConstTanD"
+        .TanDFreq CStr(FREQ_GHZ)
         .Create
     End With
 
