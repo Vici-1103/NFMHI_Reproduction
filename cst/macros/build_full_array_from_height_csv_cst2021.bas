@@ -155,33 +155,63 @@ Private Function ConfigureProject() As Boolean
     On Error GoTo Failed
 
     ' --- Plane wave excitation, +z direction, E along x ---
+    ' Optional properties (ReferenceFrequency / PhaseType / ExcitationAmplitude)
+    ' are wrapped so older CST 2021 builds without them do not abort the macro.
     With PlaneWave
         .Reset
         .Normal "0", "0", "1"
         .EVector "1", "0", "0"
         .Polarization "Linear"
+        .SetUserDecouplingPlane "False"
+        On Error Resume Next
         .ReferenceFrequency CStr(FREQ_GHZ)
         .PhaseType "Time"
         .ExcitationAmplitude "1.0"
-        .SetUserDecouplingPlane "False"
+        On Error GoTo Failed
         .Store
     End With
 
     ' --- Target-plane E-field monitor ---
-    ' MUST be Dimension = Plane (2D), otherwise CST builds a volume monitor
-    ' clipped to the geometry bounding box and the z = 102 mm slice is
-    ' unreachable. UseSubvolume = False spans the full simulation x/y extent
-    ' at the given z.
+    ' Build a 2D plane monitor at z = MONITOR_Z_MM covering the full 60x60
+    ' x/y extent. We force "plane" shape with a degenerate SetSubVolume
+    ' where zMin == zMax == MONITOR_Z_MM -- this is the form that works in
+    ' every CST 2021 build regardless of whether Monitor.Dimension is
+    ' exposed to the VBA interface.
+    Dim xExtentMm As Double, yExtentMm As Double
+    xExtentMm = N_COLS * CELL_SIZE_MM
+    yExtentMm = N_ROWS * CELL_SIZE_MM
+
     With Monitor
         .Reset
         .Name BuildMonitorName()
-        .Dimension "Plane"
         .Domain "Frequency"
         .FieldType "Efield"
         .Frequency CStr(FREQ_GHZ)
-        .UseSubvolume "False"
+
+        ' Try the explicit Dimension property first (works in CST 2022+);
+        ' if this CST 2021 build does not have it, silently skip.
+        On Error Resume Next
+        .Dimension "Plane"
+        On Error GoTo Failed
+
         .PlaneNormal "z"
         .PlanePosition CStr(MONITOR_Z_MM)
+
+        ' Pin the monitor to the target plane with a degenerate subvolume.
+        ' Wrapped because older builds may expose only UseSubVolume (camel
+        ' case) or only SetSubvolume -- we best-effort both spellings.
+        On Error Resume Next
+        .UseSubVolume "True"
+        .UseSubvolume "True"
+        .Coordinates "Free"
+        .SetSubVolume CStr(0#), CStr(xExtentMm), _
+                      CStr(0#), CStr(yExtentMm), _
+                      CStr(MONITOR_Z_MM), CStr(MONITOR_Z_MM)
+        .SetSubvolume CStr(0#), CStr(xExtentMm), _
+                      CStr(0#), CStr(yExtentMm), _
+                      CStr(MONITOR_Z_MM), CStr(MONITOR_Z_MM)
+        On Error GoTo Failed
+
         .Create
     End With
 
@@ -210,7 +240,9 @@ Private Function CreateOrUpdateMaterial() As Boolean
         .TanD CStr(TAN_DELTA)
         .TanDGiven "True"
         .TanDModel "ConstTanD"
+        On Error Resume Next
         .TanDFreq CStr(FREQ_GHZ)
+        On Error GoTo Failed
         .Create
     End With
 
