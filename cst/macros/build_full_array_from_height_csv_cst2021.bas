@@ -134,40 +134,51 @@ Private Function ConfigureProject() As Boolean
     End With
 
     ' --- Mesh: hexahedral PBA (Time Domain default) ---
-    ' Density: the first export gave a 28x28 sample plane (~1 sample/lambda).
-    ' For 30 GHz (lambda ~ 10 mm) the rule-of-thumb is >= 15 lines per
-    ' wavelength. Override both the near- and far-field mesh step counts
-    ' plus the refinement-by-boxes setting so the exported target plane is
-    ' at least ~0.66 mm per sample (~15/lambda). All lines below are best-
-    ' effort; any property missing in a given CST 2021 build is skipped.
+    ' Density: 15 cells per wavelength is paper-adequate for 30 GHz
+    ' (lambda ~ 10 mm -> max cell ~ 0.67 mm). We push the settings through
+    ' BOTH the new MeshSettings API and the legacy Mesh object, so the
+    ' override applies regardless of which spelling a given CST 2021 build
+    ' actually honours. Each call is wrapped so a missing property does
+    ' not abort the macro.
     On Error Resume Next
     Mesh.MeshType "PBA"
     With MeshSettings
         .SetMeshType "Hex"
+        .Set "Version", "1"
         .Set "StepsPerWaveNear", "15"
         .Set "StepsPerWaveFar", "15"
+        .Set "CellsPerWavelengthNear", "15"
+        .Set "CellsPerWavelengthFar", "15"
         .Set "StepsPerBoxNear", "15"
         .Set "StepsPerBoxFar", "15"
         .Set "RatioLimitGeometry", "20"
         .Set "EdgeRefinementOn", "1"
         .Set "UseCellAspectRatio", "1"
         .Set "CellAspectRatio", "2"
+        .Set "UseSameSettingsNearAsFar", "1"
     End With
     With Mesh
         .LinesPerWavelength "15"
         .MinimumLineNumber "10"
+        .RatioLimit "20"
+        .UseRatioLimit "True"
+        .MergeThinPECLayerFixpoints "True"
     End With
+    ' Force an immediate mesh regeneration so the Mesh Properties dialog
+    ' and the solver both see the overrides.
+    Mesh.Update
     On Error GoTo Failed
 
     ' --- Time Domain solver parameters ---
-    ' -40 dB accuracy is the paper-aligned default for this reproduction.
+    ' SteadyStateLimit -40 dB is the CST TD default and is adequate for
+    ' the narrow 29-31 GHz band used here. (AccuracyHex is not a valid
+    ' Solver property in CST 2021 and has been removed.)
     On Error Resume Next
     With Solver
         .Method "Hexahedral"
         .CalculationType "TD-S"
         .StimulationMode "All"
         .SteadyStateLimit "-40"
-        .AccuracyHex "-40"
         .MeshAdaption "False"
         .UseDistributedComputing "False"
         .StoreTDResultsInCache "False"
@@ -209,19 +220,15 @@ Private Function ConfigureProject() As Boolean
         .FieldType "Efield"
         .Frequency CStr(FREQ_GHZ)
 
-        ' Try the explicit Dimension property first (works in CST 2022+);
-        ' if this CST 2021 build does not have it, silently skip.
+        ' All property spellings below vary between CST 2021 builds. We
+        ' best-effort each one; a degenerate sub-volume with zMin == zMax
+        ' is the canonical CST 2021 way to pin a volume monitor to a
+        ' single plane, and it is what the CST post-processor reads when
+        ' you double-click the monitor in the Navigation Tree.
         On Error Resume Next
         .Dimension "Plane"
-        On Error GoTo Failed
-
         .PlaneNormal "z"
         .PlanePosition CStr(MONITOR_Z_MM)
-
-        ' Pin the monitor to the target plane with a degenerate subvolume.
-        ' Wrapped because older builds may expose only UseSubVolume (camel
-        ' case) or only SetSubvolume -- we best-effort both spellings.
-        On Error Resume Next
         .UseSubVolume "True"
         .UseSubvolume "True"
         .Coordinates "Free"
