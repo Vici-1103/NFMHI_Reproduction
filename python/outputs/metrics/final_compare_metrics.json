@@ -1,0 +1,36 @@
+{
+  "target_shape": [
+    60,
+    60
+  ],
+  "paper_reference": {
+    "ie": 0.6834,
+    "psnr_db": 10.47
+  },
+  "python_vs_target": {
+    "psnr": 44.22656058982004,
+    "ssim": 0.9946088029471143,
+    "ie_ref": 0.13673570456291928,
+    "ie_pred": 1.1724731922074991,
+    "ie_abs_diff": 1.03573748764458
+  },
+  "cst_vs_target": {
+    "psnr": 13.731480584826974,
+    "ssim": 0.04704304938515874,
+    "ie_ref": 0.13673570456291928,
+    "ie_pred": 6.329014989802066,
+    "ie_abs_diff": 6.192279285239147
+  },
+  "python_vs_cst": {
+    "psnr": 13.895027890666476,
+    "ssim": 0.05291869932797207,
+    "ie_ref": 1.1724731922074991,
+    "ie_pred": 6.329014989802066,
+    "ie_abs_diff": 5.156541797594567
+  },
+  "inputs": {
+    "target": "V:\\NFMHI_Reproduction\\python\\data\\targets\\target_GHZ_60x60.npy",
+    "python_output": "V:\\NFMHI_Reproduction\\python\\outputs\\figures\\dnn_train_intensity.npy",
+    "cst_output": "cst\\results\\array_sim\\field_plane_30GHz_100mm.npy"
+  }
+}

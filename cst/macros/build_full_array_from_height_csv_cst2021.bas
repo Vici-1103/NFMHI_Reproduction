@@ -134,8 +134,29 @@ Private Function ConfigureProject() As Boolean
     End With
 
     ' --- Mesh: hexahedral PBA (Time Domain default) ---
+    ' Density: the first export gave a 28x28 sample plane (~1 sample/lambda).
+    ' For 30 GHz (lambda ~ 10 mm) the rule-of-thumb is >= 15 lines per
+    ' wavelength. Override both the near- and far-field mesh step counts
+    ' plus the refinement-by-boxes setting so the exported target plane is
+    ' at least ~0.66 mm per sample (~15/lambda). All lines below are best-
+    ' effort; any property missing in a given CST 2021 build is skipped.
     On Error Resume Next
     Mesh.MeshType "PBA"
+    With MeshSettings
+        .SetMeshType "Hex"
+        .Set "StepsPerWaveNear", "15"
+        .Set "StepsPerWaveFar", "15"
+        .Set "StepsPerBoxNear", "15"
+        .Set "StepsPerBoxFar", "15"
+        .Set "RatioLimitGeometry", "20"
+        .Set "EdgeRefinementOn", "1"
+        .Set "UseCellAspectRatio", "1"
+        .Set "CellAspectRatio", "2"
+    End With
+    With Mesh
+        .LinesPerWavelength "15"
+        .MinimumLineNumber "10"
+    End With
     On Error GoTo Failed
 
     ' --- Time Domain solver parameters ---
