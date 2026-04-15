@@ -19,22 +19,41 @@ from pathlib import Path
 import numpy as np
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_SRC = PROJECT_ROOT / "cst" / "results" / "array_sim" / "field_plane_30GHz_100mm.csv"
-DEFAULT_DST = PROJECT_ROOT / "cst" / "results" / "array_sim" / "field_plane_30GHz_100mm.npy"
+EXPORT_DIR = PROJECT_ROOT / "cst" / "results" / "array_sim"
+DEFAULT_DST = EXPORT_DIR / "field_plane_30GHz_100mm.npy"
 TARGET_Z_MM = 102.0
+
+
+def _autodetect_source() -> Path:
+    # CST's 2D/3D Plot Data Export writes .txt; earlier workflows saved
+    # the same whitespace-separated content as .csv. Try the extensions
+    # the server is known to produce, newest first.
+    candidates = [
+        EXPORT_DIR / "field_plane_30GHz_100mm.txt",
+        EXPORT_DIR / "field_plane_30GHz_100mm.csv",
+    ]
+    for path in candidates:
+        if path.exists():
+            return path
+    return candidates[0]
 
 
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Convert CST ASCII field export to 2D |E|^2 .npy")
-    p.add_argument("--src", type=Path, default=DEFAULT_SRC)
+    p.add_argument("--src", type=Path, default=None,
+                   help="CST ASCII export (.txt or .csv). Autodetects if omitted.")
     p.add_argument("--dst", type=Path, default=DEFAULT_DST)
     p.add_argument("--target-z", type=float, default=TARGET_Z_MM,
                    help="Target z slice in mm; closest z in the export is used.")
-    return p.parse_args()
+    args = p.parse_args()
+    if args.src is None:
+        args.src = _autodetect_source()
+    return args
 
 
 def main() -> None:
     args = parse_args()
+    print(f"Source: {args.src}")
     data = np.loadtxt(args.src, skiprows=2)
     if data.ndim != 2 or data.shape[1] < 9:
         raise ValueError(f"Unexpected CST export shape {data.shape}; expected >=9 columns")
